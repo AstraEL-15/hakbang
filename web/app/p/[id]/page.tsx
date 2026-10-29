@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { arrayUnion, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { ArrowLeft, CalendarDays, Check, Clock, Cpu, Loader2, PartyPopper, Play, Puzzle, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function PlanPage() {
   const [stuckBusy, setStuckBusy] = useState(false);
   const [cheer, setCheer] = useState<string | null>(null);
   const [stuckOpen, setStuckOpen] = useState(false);
-  const [focus, setFocus] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null); // minutes the timer starts with
 
   const { user } = useAuth();
 
@@ -64,13 +64,28 @@ export default function PlanPage() {
     }
   }
 
-  function markDone() {
+  function markDone(focusSec = 0) {
     if (!p || !cur) return;
-    setFocus(false);
+    setFocus(null);
     setCheer(null);
-    save({ steps: p.steps.map((s) => (s.id === cur.id ? { ...s, status: "done" } : s)) });
+    save({ steps: p.steps.map((s) => (s.id === cur.id ? { ...s, status: "done", focusSec: (s.focusSec ?? 0) + focusSec } : s)) });
     const left = p.steps.length - doneCount - 1;
     toast.success(left ? (p.lang === "tl" ? "Ayan! Isang hakbang na. 🎉" : "Nice! One step down. 🎉") : "That was the last one! 🎉");
+  }
+
+  function stopCounts(focusSec: number) {
+    if (!p || !cur) return;
+    setFocus(null);
+    const mins = Math.max(1, Math.round(focusSec / 60));
+    save({
+      steps: p.steps.map((s) => (s.id === cur.id ? { ...s, focusSec: (s.focusSec ?? 0) + focusSec } : s)),
+      log: [...p.log, { label: "Showed up", detail: `${mins} min on "${cur.title}"`, ms: 0 }],
+    });
+    toast.success(p.lang === "tl" ? "Nagpakita ka. Panalo na 'yun. 💚" : "You showed up. That counts. 💚");
+  }
+
+  function park(thought: string) {
+    updateDoc(doc(db, "projects", id), { parked: arrayUnion(thought) }).catch(() => toast.error("Couldn't park that thought."));
   }
 
   async function stuck(reason: StuckReason) {
@@ -193,11 +208,16 @@ export default function PlanPage() {
           )}
           {cheer && <p className="rounded-xl bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground animate-in fade-in">💚 {cheer}</p>}
           <div className="grid gap-2 pt-1">
-            <Button size="lg" className="h-13 rounded-2xl text-base font-bold" onClick={() => setFocus(true)}>
-              <Play /> Start focus · {cur.minutes} min
+            <Button size="lg" className="h-13 rounded-2xl text-base font-bold" onClick={() => setFocus(2)}>
+              <Play /> Start · just 2 min
             </Button>
+            {cur.minutes > 2 && (
+              <button className="-mt-1 text-xs font-medium text-muted-foreground underline-offset-2 hover:underline" onClick={() => setFocus(Math.min(25, cur.minutes))}>
+                or focus for {Math.min(25, cur.minutes)} min
+              </button>
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="lg" className="h-12 rounded-2xl" onClick={markDone}>
+              <Button variant="outline" size="lg" className="h-12 rounded-2xl" onClick={() => markDone()}>
                 <Check /> Done
               </Button>
               <Button variant="outline" size="lg" className="h-12 rounded-2xl border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100" onClick={() => setStuckOpen(true)} disabled={stuckBusy}>
@@ -238,6 +258,16 @@ export default function PlanPage() {
         ))}
       </section>
 
+      {!!p.parked?.length && (
+        <details className="rounded-2xl border bg-card p-4 text-sm">
+          <summary className="cursor-pointer font-semibold">💭 Parking lot ({p.parked.length})</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            {p.parked.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+          <Button variant="ghost" size="sm" className="mt-2" onClick={() => save({ parked: [] })}>Clear parked thoughts</Button>
+        </details>
+      )}
+
       <details className="rounded-2xl border bg-card p-4 text-sm">
         <summary className="flex cursor-pointer items-center gap-2 font-semibold"><Cpu className="size-4 text-primary" /> How Hakbang planned this</summary>
         <ol className="mt-3 space-y-2">
@@ -255,7 +285,17 @@ export default function PlanPage() {
       </details>
 
       <StuckDialog open={stuckOpen} onOpenChange={setStuckOpen} lang={p.lang} onPick={stuck} />
-      {cur && <FocusTimer open={focus} onOpenChange={setFocus} title={cur.title} minutes={cur.minutes} onDone={markDone} />}
+      {cur && (
+        <FocusTimer
+          open={focus !== null}
+          onOpenChange={(o) => !o && setFocus(null)}
+          title={cur.title}
+          startMinutes={focus ?? 2}
+          onDone={markDone}
+          onStop={stopCounts}
+          onPark={park}
+        />
+      )}
     </main>
   );
 }

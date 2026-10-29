@@ -95,6 +95,7 @@ export type Project = {
   steps: Step[]
   log: LogEntry[]
   overMinutes: number
+  parked?: string[]
 }
 
 export type AiMeta = { model: string; ms: number; tokensIn: number; tokensOut: number }
