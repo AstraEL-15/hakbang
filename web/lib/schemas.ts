@@ -21,6 +21,7 @@ export const PlanSchema = z.object({
       detail: z.string().describe('Max 15 words: what done looks like'),
       minutes: z.number().describe('Realistic minutes, 2 to 45'),
       energy: z.enum(['low', 'med', 'high']),
+      why: z.string().describe('Max 12 words: why this step comes now (what it unlocks, or why it is first)'),
     }),
   ),
 })
@@ -80,6 +81,8 @@ export type Step = {
   level?: number // unstuck-ladder rung: 0 = original step
   example?: string // template shown for "I don't get it"
   focusSec?: number
+  why?: string // AI one-liner: why this step comes now
+  est?: number // original estimate, kept when minutes get padded for the student's pace
 }
 
 export type LogEntry = { label: string; detail: string; ms: number; model?: string }
@@ -99,6 +102,9 @@ export type Project = {
   parked?: string[]
   peak?: 'morning' | 'afternoon' | 'night'
   disruptions?: { day: string; kind: DisruptionKind }[]
+  pace?: number // learned actual ÷ estimated multiplier applied to todo steps
+  paceOff?: boolean // student undid auto-padding
+  showedUp?: string[] // dayKeys with any done step or focus session
 }
 
 export type AiMeta = { model: string; ms: number; tokensIn: number; tokensOut: number }

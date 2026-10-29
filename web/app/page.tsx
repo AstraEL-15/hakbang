@@ -14,13 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { LangToggle } from "@/components/lang-toggle";
 import { useAuth } from "@/components/auth-provider";
 import { FocusingNow } from "@/components/body-double";
+import { ShowUps } from "@/components/show-ups";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/firebase";
 import { postJson, toDataUrl } from "@/lib/client";
 import { dayKey, dayLabel, newId, PEAK, type Peak, planStatus, schedule, totalMinutes } from "@/lib/schedule";
 import { phHoliday } from "@/lib/ph-calendar";
-import type { AiMeta, Brief, Lang, LogEntry, Plan, Project } from "@/lib/schemas";
+import type { AiMeta, Brief, Lang, LogEntry, Plan, Project, Step } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
+import { learnedPace, paceChanged, paceText, padded } from "@/lib/pace";
 
 type Stage = { label: string; detail?: string; state: "wait" | "run" | "done"; meta?: string };
 
@@ -156,17 +158,27 @@ export default function Home() {
       set(1, { state: "done", detail: `${plan.data.steps.length} steps · about ${Math.round(total / 6) / 10} hours total`, meta: `${short(plan.meta.model)} · ${(plan.meta.ms / 1000).toFixed(1)}s` });
       log.push({ label: "Broke it into steps", detail: `${plan.data.steps.length} steps, ${total} min`, ms: plan.meta.ms, model: plan.meta.model });
 
-      const sched = schedule(plan.data.steps, due, minutesPerDay);
+      // Learned time padding: carry the student's real pace (from past plans) into the new estimates. Step 1 stays 2 min.
+      const pace = learnedPace(plans.flatMap((pl) => pl.steps));
+      const usePace = paceChanged(pace) ? pace!.ratio : 1;
+      const steps = plan.data.steps.map((st, i) => {
+        const base: Step = { id: newId(), title: st.title, detail: st.detail, why: st.why, minutes: st.minutes, energy: st.energy, status: "todo", day: "" };
+        return usePace !== 1 && i > 0 ? padded(base, usePace) : base;
+      });
+      const sched = schedule(steps, due, minutesPerDay);
       const hol = sched.holidays.map((k) => `${dayLabel(k)} (${phHoliday(k)!.label})`).join(", ");
       set(2, {
         state: "done",
         detail:
           (sched.overMinutes > 0
             ? `Across ${sched.daysUsed} days · ${sched.overMinutes} min over your time ⚠️`
-            : `Finishes ${dayLabel(sched.finishDay)} · 24-h safety buffer before the deadline ✓`) + (hol ? ` · lighter on ${hol}` : ""),
+            : `Finishes ${dayLabel(sched.finishDay)} · 24-h safety buffer before the deadline ✓`) +
+          (hol ? ` · lighter on ${hol}` : "") +
+          (usePace !== 1 ? ` · 🧠 ${paceText(usePace)}, so I ${usePace > 1 ? "padded" : "trimmed"} the steps` : ""),
         meta: "Hakbang scheduler · PH calendar",
       });
       log.push({ label: "Reverse-planned from the deadline", detail: `${sched.daysUsed} days × ${minutesPerDay} min, 24-h buffer${hol ? `, lighter on ${hol}` : ""}`, ms: 0 });
+      if (usePace !== 1) log.push({ label: "Learned your pace", detail: `From ${pace!.samples} timed step${pace!.samples === 1 ? "" : "s"} in past plans: ${paceText(usePace)}, so every estimate is ×${usePace}`, ms: 0 });
 
       const project: Omit<Project, "id"> = {
         ownerId: user.uid,
@@ -178,8 +190,9 @@ export default function Home() {
         peak,
         createdAt: Date.now(),
         overMinutes: sched.overMinutes,
-        steps: sched.steps.map((st) => ({ id: newId(), title: st.title, detail: st.detail, minutes: st.minutes, energy: st.energy, status: "todo", day: st.day })),
+        steps: sched.steps,
         log,
+        ...(usePace !== 1 && { pace: usePace }),
       };
       const ref = await addDoc(collection(db, "projects"), project);
       set(3, { state: "done", detail: "Opening your first step…" });
@@ -328,6 +341,7 @@ export default function Home() {
           <p className="text-center text-xs text-muted-foreground">
             <Badge variant="secondary" className="mr-1">AI</Badge> reads your task and plans it, and you stay in control.
           </p>
+          {plans.some((pl) => pl.showedUp?.length) && <ShowUps days={plans.flatMap((pl) => pl.showedUp ?? [])} />}
           {plans.length > 0 && (
             <section className="space-y-2 pt-2">
               <div className="flex items-center justify-between">

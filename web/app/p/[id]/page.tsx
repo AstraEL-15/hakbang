@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { arrayUnion, doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { ArrowLeft, CalendarDays, Check, Clock, Cpu, Loader2, PartyPopper, Play, Puzzle, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Brain, CalendarDays, Check, Clock, Cpu, Lightbulb, Loader2, PartyPopper, Play, Puzzle, Sparkles, TriangleAlert, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,15 +15,35 @@ import { FocusTimer } from "@/components/focus-timer";
 import { useAuth } from "@/components/auth-provider";
 import { StuckDialog } from "@/components/stuck-dialog";
 import { BodyDouble } from "@/components/body-double";
+import { ShowUps } from "@/components/show-ups";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
 import { dayKey, dayLabel, isDeep, newId, PEAK, planStatus, schedule, totalMinutes } from "@/lib/schedule";
 import { DISRUPTIONS, type DisruptionKind, phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Lang, LogEntry, Project, Step, Stuck, StuckReason } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
+import { learnedPace, paceChanged, paceText, padded } from "@/lib/pace";
+import { CHEERS, isMuted, reward, setMuted } from "@/lib/reward";
 
 const ENERGY = { low: "Easy", med: "Some focus", high: "Deep focus" } as const;
 const fmtMin = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`);
+const addDay = (days: string[] = []) => [...new Set([...days, dayKey(new Date())])];
+
+/** Why each micro-step exists, by stuck reason (the AI picked the help style). */
+const STUCK_WHY: Record<StuckReason, Record<Lang, string>> = {
+  too_big: { en: "A smaller piece of a step that felt too big", tl: "Mas maliit na piraso, para hindi nakakatakot" },
+  confused: { en: "Starts from the example, so you know what done looks like", tl: "Tingnan muna ang example para alam mo ang itsura ng tapos" },
+  scared: { en: "Ugly first draft on purpose: bad is allowed here", tl: "Pangit muna on purpose, okay lang 'yan" },
+  boring: { en: "Turned into a game so it drags less", tl: "Ginawang laro para hindi boring" },
+  distracted: { en: "Quick reset first, then an easy way back in", tl: "Reset muna saglit, tapos balik dahan-dahan" },
+};
+
+function whyThis(s: Step, isFirst: boolean, lang: Lang) {
+  if (s.why) return s.why;
+  if (s.parentId) return lang === "tl" ? "Mas maliit na bersyon, para madaling simulan" : "A smaller version, so starting feels easy";
+  if (isFirst) return lang === "tl" ? "Maliit on purpose: ang pagsimula ang pinakamahirap" : "Tiny on purpose: starting is the hardest part";
+  return lang === "tl" ? "Ito ang kasunod, at dito nakasandal ang susunod na hakbang" : "It's next in order, and the following step builds on it";
+}
 
 export default function PlanPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +52,8 @@ export default function PlanPage() {
   const [cheer, setCheer] = useState<string | null>(null);
   const [stuckOpen, setStuckOpen] = useState(false);
   const [focus, setFocus] = useState<number | null>(null); // minutes the timer starts with
+  const [muted, setMute] = useState(false);
+  useEffect(() => setMute(isMuted()), []);
 
   const { user } = useAuth();
 
@@ -66,13 +88,51 @@ export default function PlanPage() {
     }
   }
 
+  /** Re-fit the todo steps into the days left (from today), honouring disruptions. */
+  function fit(steps: Step[], disruptions = p?.disruptions ?? []) {
+    const blocked = Object.fromEntries(disruptions.map((d) => [d.day, DISRUPTIONS[d.kind].factor]));
+    const todo = steps.filter((s) => s.status === "todo");
+    const res = schedule(todo, p!.deadline, p!.minutesPerDay, { blocked });
+    const newDay = new Map(res.steps.map((s) => [s.id, s.day]));
+    return {
+      res,
+      moved: todo.filter((s) => newDay.get(s.id) !== s.day).length,
+      steps: steps.map((s) => (s.status === "todo" ? { ...s, day: newDay.get(s.id) ?? s.day } : s)),
+    };
+  }
+
   function markDone(focusSec = 0) {
     if (!p || !cur) return;
     setFocus(null);
     setCheer(null);
-    save({ steps: p.steps.map((s) => (s.id === cur.id ? { ...s, status: "done", focusSec: (s.focusSec ?? 0) + focusSec } : s)) });
-    const left = p.steps.length - doneCount - 1;
-    toast.success(left ? (p.lang === "tl" ? "Ayan! Isang hakbang na. 🎉" : "Nice! One step down. 🎉") : "That was the last one! 🎉");
+    const steps = p.steps.map((s) => (s.id === cur.id ? { ...s, status: "done" as const, focusSec: (s.focusSec ?? 0) + focusSec } : s));
+    const left = steps.filter((s) => s.status === "todo").length;
+    const patch: Partial<Project> = { steps, showedUp: addDay(p.showedUp) };
+
+    // Learned time padding: compare real focus time with the estimates, then re-fit what's left.
+    const pace = learnedPace(steps);
+    if (left && !p.paceOff && paceChanged(pace, p.pace ?? 1)) {
+      const r = fit(steps.map((s) => (s.status === "todo" ? padded(s, pace!.ratio) : s)));
+      const verb = pace!.ratio >= 1 ? "padded" : "trimmed";
+      Object.assign(patch, {
+        steps: r.steps,
+        pace: pace!.ratio,
+        overMinutes: r.res.overMinutes,
+        log: [...p.log, { label: "Learned your pace", detail: `${paceText(pace!.ratio)} (${pace!.samples} timed step${pace!.samples === 1 ? "" : "s"}), so I ${verb} ${left} step${left === 1 ? "" : "s"} · finishes ${dayLabel(r.res.finishDay)}`, ms: 0 }],
+      });
+      setTimeout(() => toast(`🧠 Learned your pace: ${paceText(pace!.ratio)}, so I ${verb} your next steps.`, { duration: 7000 }), 600);
+    }
+    save(patch);
+    reward(!left);
+    const cheers = CHEERS[p.lang];
+    toast.success(left ? cheers[doneCount % cheers.length] : p.lang === "tl" ? "Huling hakbang na 'yon! 🎉" : "That was the last one! 🎉");
+  }
+
+  function undoPace() {
+    if (!p) return;
+    const r = fit(p.steps.map((s) => (s.status === "todo" && s.est ? { ...s, minutes: s.est } : s)));
+    save({ steps: r.steps, pace: 1, paceOff: true, overMinutes: r.res.overMinutes, log: [...p.log, { label: "Undid pace padding", detail: "Back to the original estimates", ms: 0 }] });
+    toast("Back to the original estimates. I won't pad this plan again.");
   }
 
   function stopCounts(focusSec: number) {
@@ -81,6 +141,7 @@ export default function PlanPage() {
     const mins = Math.max(1, Math.round(focusSec / 60));
     save({
       steps: p.steps.map((s) => (s.id === cur.id ? { ...s, focusSec: (s.focusSec ?? 0) + focusSec } : s)),
+      showedUp: addDay(p.showedUp),
       log: [...p.log, { label: "Showed up", detail: `${mins} min on "${cur.title}"`, ms: 0 }],
     });
     toast.success(p.lang === "tl" ? "Nagpakita ka. Panalo na 'yun. 💚" : "You showed up. That counts. 💚");
@@ -90,14 +151,10 @@ export default function PlanPage() {
   function replan(extra?: { day: string; kind: DisruptionKind }) {
     if (!p) return;
     const list = [...(p.disruptions ?? []), ...(extra ? [extra] : [])];
-    const blocked = Object.fromEntries(list.map((d) => [d.day, DISRUPTIONS[d.kind].factor]));
-    const todo = p.steps.filter((s) => s.status === "todo");
-    const res = schedule(todo, p.deadline, p.minutesPerDay, { blocked });
-    const newDay = new Map(res.steps.map((s) => [s.id, s.day]));
-    const moved = todo.filter((s) => newDay.get(s.id) !== s.day).length;
+    const { res, moved, steps } = fit(p.steps, list);
     const why = extra ? `${DISRUPTIONS[extra.kind].emoji} ${DISRUPTIONS[extra.kind].label} today` : "Re-planned from today";
     save({
-      steps: p.steps.map((s) => (s.status === "todo" ? { ...s, day: newDay.get(s.id) ?? s.day } : s)),
+      steps,
       disruptions: list,
       overMinutes: res.overMinutes,
       log: [...p.log, { label: extra ? "Auto-rescheduled around a disruption" : "Re-planned from today", detail: `${why}: moved ${moved} step${moved === 1 ? "" : "s"}, finishes ${dayLabel(res.finishDay)}`, ms: 0 }],
@@ -136,6 +193,7 @@ export default function PlanPage() {
         day: cur.day,
         parentId: cur.id,
         level: (cur.level ?? 0) + 1,
+        why: STUCK_WHY[reason][p.lang],
         example: data.example || undefined,
       }));
       const log: LogEntry = { label, detail: `"${cur.title}" → ${micro.length} smaller step${micro.length === 1 ? "" : "s"}`, ms: meta.ms, model: meta.model === "ladder" ? undefined : meta.model };
@@ -183,7 +241,21 @@ export default function PlanPage() {
         <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/" aria-label="Home" />}>
           <ArrowLeft />
         </Button>
-        <LangToggle value={p.lang} onChange={(lang: Lang) => save({ lang })} />
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={muted ? "Turn sounds on" : "Mute sounds"}
+            title={muted ? "Sounds off" : "Sounds on"}
+            onClick={() => {
+              setMuted(!muted);
+              setMute(!muted);
+            }}
+          >
+            {muted ? <VolumeX /> : <Volume2 />}
+          </Button>
+          <LangToggle value={p.lang} onChange={(lang: Lang) => save({ lang })} />
+        </div>
       </header>
 
       <section className="space-y-2">
@@ -209,6 +281,15 @@ export default function PlanPage() {
             ✓ On track · finishes {dayLabel(st.finishDay)}, with a 24-h safety buffer before the deadline
           </p>
         ) : null}
+        {cur && !!p.pace && p.pace !== 1 && !p.paceOff && (
+          <div className="flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950 animate-in fade-in">
+            <Brain className="mt-0.5 size-4 shrink-0 text-violet-600" />
+            <span className="flex-1">
+              <span className="font-semibold">Learned your pace:</span> {paceText(p.pace)}, so I {p.pace >= 1 ? "padded" : "trimmed"} your remaining steps.
+            </span>
+            <button className="shrink-0 text-xs font-semibold text-violet-700 underline-offset-2 hover:underline" onClick={undoPace}>Undo</button>
+          </div>
+        )}
       </section>
 
       {cur ? (
@@ -221,8 +302,12 @@ export default function PlanPage() {
           </div>
           <h2 className="text-[1.7rem] font-extrabold leading-tight tracking-tight">{cur.title}</h2>
           {cur.detail && <p className="text-muted-foreground">{cur.detail}</p>}
+          <p className="flex items-start gap-1.5 rounded-xl bg-muted/60 px-3 py-2 text-sm">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-500" />
+            <span><span className="font-semibold">{p.lang === "tl" ? "Bakit ito:" : "Why this step:"}</span> {whyThis(cur, doneCount === 0 && idx === 0, p.lang)}</span>
+          </p>
           <div className="flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground"><Clock className="size-3.5" /> {cur.minutes} min</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground"><Clock className="size-3.5" /> {cur.est && cur.est !== cur.minutes && <s className="opacity-50" title="Original estimate, before learning your pace">{cur.est}</s>} {cur.minutes} min</span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
               {isDeep(cur) ? `${PEAK[p.peak ?? "night"].emoji} ${ENERGY[cur.energy]} · your ${PEAK[p.peak ?? "night"].label.toLowerCase()} slot` : "☁️ Easy · any low-energy time"}
             </span>
@@ -270,6 +355,8 @@ export default function PlanPage() {
           <Button nativeButton={false} render={<Link href="/" />}>Plan something else</Button>
         </Card>
       )}
+
+      <ShowUps days={p.showedUp ?? []} />
 
       {cur && (
         <section className="space-y-2">

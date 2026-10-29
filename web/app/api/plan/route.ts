@@ -13,6 +13,7 @@ Rules:
 - Cover every deliverable and requirement, in a sensible order, with a review/submit step at the end.
 - detail is ONE short sentence (max 15 words) saying what done looks like.
 - Return 10–16 steps total (never more than 18). Estimate time realistically for a student, not an expert.
+- why: max 12 words on why this step comes now: what it unlocks next, or why it's easy to start (e.g. "Gives you the outline the intro hangs on").
 - energy: low = mechanical, med = some focus, high = deep thinking/writing.
 - ${LANG_PROMPT[lang]}`
 
