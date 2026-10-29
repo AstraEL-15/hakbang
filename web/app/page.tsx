@@ -17,7 +17,7 @@ import { FocusingNow } from "@/components/body-double";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/firebase";
 import { postJson, toDataUrl } from "@/lib/client";
-import { dayKey, dayLabel, newId, planStatus, schedule, totalMinutes } from "@/lib/schedule";
+import { dayKey, dayLabel, newId, PEAK, type Peak, planStatus, schedule, totalMinutes } from "@/lib/schedule";
 import { phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Brief, Lang, LogEntry, Plan, Project } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ export default function Home() {
   const [showText, setShowText] = useState(false);
   const [deadline, setDeadline] = useState(() => dayKey(Date.now() + 9 * 86_400_000));
   const [minutesPerDay, setMinutesPerDay] = useState(90);
+  const [peak, setPeak] = useState<Peak>("night");
   const [lang, setLang] = useState<Lang>("en");
   const [stages, setStages] = useState<Stage[] | null>(null);
   const { user, google, guest, logout } = useAuth();
@@ -158,6 +159,7 @@ export default function Home() {
         deadline: due,
         minutesPerDay,
         lang,
+        peak,
         createdAt: Date.now(),
         overMinutes: sched.overMinutes,
         steps: sched.steps.map((st) => ({ id: newId(), title: st.title, detail: st.detail, minutes: st.minutes, energy: st.energy, status: "todo", day: st.day })),
@@ -281,6 +283,25 @@ export default function Home() {
                   <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60} hr${m > 60 ? "s" : ""}`}</option>
                 ))}
               </select>
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label>I focus best in the…</Label>
+              <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Peak focus time">
+                {(Object.keys(PEAK) as Peak[]).map((k) => (
+                  <button
+                    key={k}
+                    role="radio"
+                    aria-checked={peak === k}
+                    onClick={() => setPeak(k)}
+                    className={cn(
+                      "h-10 rounded-lg border text-sm font-medium transition-colors",
+                      peak === k ? "border-primary bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-secondary/50",
+                    )}
+                  >
+                    {PEAK[k].emoji} {PEAK[k].label}
+                  </button>
+                ))}
+              </div>
             </div>
           </Card>
 

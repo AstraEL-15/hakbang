@@ -86,3 +86,12 @@ export const newId = () => Math.random().toString(36).slice(2, 10)
 export function totalMinutes(steps: Pick<Step, 'minutes'>[]) {
   return steps.reduce((a, s) => a + s.minutes, 0)
 }
+
+/** Energy-aware slots: hard steps go in the student's peak focus time, easy ones fill low-energy time. */
+export const PEAK = {
+  morning: { emoji: '🌅', label: 'Morning' },
+  afternoon: { emoji: '☀️', label: 'Afternoon' },
+  night: { emoji: '🌙', label: 'Night' },
+} as const
+export type Peak = keyof typeof PEAK
+export const isDeep = (s: Pick<Step, 'energy'>) => s.energy !== 'low'

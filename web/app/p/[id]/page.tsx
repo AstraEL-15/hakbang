@@ -17,7 +17,7 @@ import { StuckDialog } from "@/components/stuck-dialog";
 import { BodyDouble } from "@/components/body-double";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
-import { dayKey, dayLabel, newId, planStatus, schedule, totalMinutes } from "@/lib/schedule";
+import { dayKey, dayLabel, isDeep, newId, PEAK, planStatus, schedule, totalMinutes } from "@/lib/schedule";
 import { DISRUPTIONS, type DisruptionKind, phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Lang, LogEntry, Project, Step, Stuck, StuckReason } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
@@ -223,7 +223,9 @@ export default function PlanPage() {
           {cur.detail && <p className="text-muted-foreground">{cur.detail}</p>}
           <div className="flex flex-wrap gap-2 text-xs font-semibold">
             <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground"><Clock className="size-3.5" /> {cur.minutes} min</span>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">{ENERGY[cur.energy]}</span>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+              {isDeep(cur) ? `${PEAK[p.peak ?? "night"].emoji} ${ENERGY[cur.energy]} · your ${PEAK[p.peak ?? "night"].label.toLowerCase()} slot` : "☁️ Easy · any low-energy time"}
+            </span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">{dayLabel(cur.day)}</span>
           </div>
           {!!cur.level && (
@@ -300,6 +302,12 @@ export default function PlanPage() {
               <span className="text-xs text-muted-foreground">{fmtMin(totalMinutes(steps))} of {fmtMin(p.minutesPerDay)}</span>
             </div>
             <DayBadges day={day} disruption={p.disruptions?.find((d) => d.day === day)?.kind} />
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {[
+                totalMinutes(steps.filter(isDeep)) && `${PEAK[p.peak ?? "night"].emoji} ${PEAK[p.peak ?? "night"].label} focus: ${fmtMin(totalMinutes(steps.filter(isDeep)))} deep work`,
+                totalMinutes(steps.filter((s) => !isDeep(s))) && `☁️ Anytime: ${fmtMin(totalMinutes(steps.filter((s) => !isDeep(s))))} easy`,
+              ].filter(Boolean).join(" · ")}
+            </p>
             <ul className="space-y-1.5">
               {steps.map((s) => (
                 <li key={s.id} className={cn("flex items-start gap-2 text-sm", s.parentId && "pl-4", s.id === cur?.id && "font-semibold text-primary")}>
@@ -307,7 +315,7 @@ export default function PlanPage() {
                     {s.status === "done" && <Check className="size-3" />}
                   </span>
                   <span className={cn("flex-1", s.status === "done" && "text-muted-foreground line-through")}>{s.title}</span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.minutes}m</span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground" title={isDeep(s) ? "Peak focus slot" : "Low-energy slot"}>{isDeep(s) ? PEAK[p.peak ?? "night"].emoji : "☁️"} {s.minutes}m</span>
                 </li>
               ))}
             </ul>

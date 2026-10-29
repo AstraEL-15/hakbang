@@ -97,6 +97,7 @@ export type Project = {
   log: LogEntry[]
   overMinutes: number
   parked?: string[]
+  peak?: 'morning' | 'afternoon' | 'night'
   disruptions?: { day: string; kind: DisruptionKind }[]
 }
 
