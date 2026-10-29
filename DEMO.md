@@ -1,39 +1,43 @@
 # Demo script (3:00)
 
-Before presenting: open `http://localhost:3000`, tap **Reset demo data**, set the browser zoom to 125%.
+**Before presenting**
+- Open `https://hakbang--prompt2-product.us-central1.hosted.app/?fast=1` (or `localhost:3000/?fast=1`). `?fast=1` makes 1 timer minute pass in 5 s.
+- Sign in with Google using the demo account, so no sign-in happens on stage.
+- Run **Try a sample brief** once beforehand, so the photo read is cached and instant.
+- Set the browser zoom to 125%. Have a phone ready with the URL open (as a guest) for the body-double moment.
 
 ## 0:00 Hook (20 s): Pitch lead
-"This is Bea. She's a Psych student with ADHD. Her prof just handed her this." *(hold up the 10-page brief)*
-"She's not lazy. Her brain sees one giant wall, so she freezes. With ADHD it's the *starting* that's hard,
-not the work. Then the deadline arrives."
+"This is Bea, a 3rd-year Psych student with ADHD. Her prof just handed her this." *(hold up the brief)*
+"She isn't lazy. ADHD makes *starting* the hard part. A 10-page brief looks like one giant wall, so she freezes,
+and nothing happens until the night before."
 
 ## 0:20 Solution (10 s)
-"Hakbang turns one overwhelming task into one doable next step, and it fits everything into the days she
-actually has left."
+"Hakbang turns one overwhelming task into one doable next step, and fits the rest into the days she actually has."
 
-## 0:30 Live golden path (100 s): Driver
-1. Tap **Try a sample brief** (loads `public/demo/brief.png`, a research paper brief). The deadline is pre-filled (+9 days) and so is 60 min/day.
-   *(If live camera is wanted: snap the printed brief instead.)*
-2. Tap **Hakbang na!** Narrate the pipeline as it ticks: "It's *reading* the photo… found 5 deliverables…
-   broke it into 14 steps with time estimates… scheduled across 8 days."
-3. **WOW:** a big card appears: **"Step 1: Open a new doc and type the title — 5 min."**
-   "That's it. That's all Bea has to do right now."
-4. Tap **Start focus** → the 5:00 timer runs. Close it.
-5. Go to Step 2, tap **Stuck?** → the AI splits it into 3 one-to-two-minute micro-steps.
-   "When even that feels too big, it gets smaller."
-6. Toggle **Taglish**, then tap Stuck again → "Buksan mo lang ang Google Scholar tab — 1 min."
-7. Tap **Done** → the next step slides in and progress fills. Scroll to **Your schedule**: day-by-day blocks, all before the deadline.
+## 0:30 Live (110 s): Driver
+1. **Try a sample brief**. The deadline is Nov 7, 1.5 h/day, and "I focus best: Night". Tap **Hakbang na!**
+   Narrate the pipeline: "Reading the photo… 7 deliverables… 18 small steps… reverse-planned with a 24-hour
+   safety buffer, and lighter on Undas."
+2. **WOW:** a giant card says **"Open a new Google Doc and type the title, 2 min."** "That's all Bea has to do."
+3. **Start · just 2 min**. A shrinking disc and **Kasama**, a study buddy. *(Phone joins as a guest and starts focus.)*
+   "👥 1 studying with you now. That's body doubling, a well-known ADHD trick." When time's up:
+   **"Keep going or stop?"** "Once you've started, you usually keep going." Tap **I finished this step**.
+4. Next step, tap **I'm stuck** → **😰 Scared it'll be bad** → "Write the worst version, on purpose."
+   "Each kind of stuck gets different help: confused gets an example, too big gets the ladder 15 → 5 → 2 min → just open the file."
+5. **⚡ Brownout** → toast: "moved 15 steps, still done by Thu Nov 5, before your buffer ✓". "Philippine reality: brownouts, typhoons, Undas."
+6. Optional, if time: toggle **Taglish**, then tap I'm stuck again; or **Pick one for me** on home.
 
-## 2:10 Impact & feasibility (20 s)
-"Every action costs well under one peso in AI (see the cost slide, from logged tokens). Pilot: university guidance offices, starting with
-a partner school in Laguna. It runs on serverless + Firebase. Calendar sync and notifications are simulated today."
+## 2:20 Impact & feasibility (20 s)
+"About ₱0.06 of AI per plan and well under a centavo per Stuck tap, based on logged tokens (estimates).
+Pilot: a university guidance office in Laguna. It runs serverless on Firebase. PAGASA auto-alerts and calendar sync are simulated today."
 
-## 2:30 How AI is used + disclosure (15 s)
-"Gemini Flash Lite reads the photo, DeepSeek plans and breaks steps down, and our code schedules them. The AI drafts and Bea stays in control.
-We built this with Claude Code; the details are in AI_DISCLOSURE.md."
+## 2:40 How AI is used + disclosure (15 s)
+"Gemini Flash Lite reads the photo, plans the steps and coaches you through Stuck, with DeepSeek as automatic fallback.
+Our own code does the scheduling. The AI drafts and Bea stays in control. Built with Claude Code; see AI_DISCLOSURE.md."
 
-## 2:45 Close
-"Hindi mo kailangang tapusin lahat ngayon. Isang hakbang lang." *(You don't have to finish it all today. Just one step.)*
+## 2:55 Close
+"Hindi mo kailangang tapusin lahat ngayon. Isang hakbang lang." *(You don't have to finish everything today. Just one step.)*
 
 ## Backup
-If the AI is slow or fails, play the recording in `pitch/`. If Wi-Fi is down, switch to the phone hotspot.
+If AI is slow, the pipeline keeps animating: wait up to about 15 s, because a timeout retries automatically. If it fails, play the recording in `pitch/`.
+If the Wi-Fi drops, switch to the phone hotspot.

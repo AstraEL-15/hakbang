@@ -23,13 +23,18 @@ with time estimates → fitted into real blocks before the deadline → ONE step
 - [x] Plan screen `/p/[id]`: onSnapshot, one-step card, Done, progress, schedule list, pipeline log
 - [x] `/api/stuck` → micro-steps replace the current step in Firestore
 - [x] Focus timer (dialog, countdown = step minutes)
-- [ ] EN / Taglish toggle (AI output language)
-- [ ] Sample brief image in `web/public/demo/`, error.tsx, loading/empty/error states
+- [x] EN / Taglish toggle (AI output language; stronger Taglish prompt)
+- [x] Sample brief image in `web/public/demo/`, error.tsx, loading/empty/error states
+- [x] Auth: Google + guest (anonymous), owner-only Firestore rules, ID-token check on AI routes
+- [x] Deployed: https://hakbang--prompt2-product.us-central1.hosted.app (Firebase App Hosting, key in Secret Manager)
 
-## Stretch (only after T+90 green)
-- Deadline-risk alert ("Hindi kasya — 3h over. Cut these optional steps?")
-- Voice "brain dump" input (Web Speech, fil-PH)
-- Confetti / streak on Done
+## Feature plan (14:26, all built + verified by 14:45)
+- [x] A1 Smarter Stuck: 5 reasons (too big / don't get it / scared / boring / distracted), unstuck ladder 15→5→2→"just open the file", ugly-first-draft, AI example/template
+- [x] A2 Focus v2: "Just 2 minutes" → "Keep going or stop?", sprints 2/10/15/25 + breaks, shrinking visual timer, parking lot, hyperfocus + tab-return nudges (`?fast=1` for demo)
+- [x] A3 Reverse deadline (24-h buffer), PH reality calendar (Undas lighter days), one-tap disruption → auto-reschedule, no-guilt on-track status
+- [x] A4 Body-doubling room: live RTDB presence + Kasama companion + "N focusing now"
+- [x] B1 Pick-for-me · B2 Voice start (Web Speech fil-PH/en-PH) · B3 Energy-aware peak-time slots
+- Roadmap only (pitch): learned time padding (focusSec is already collected), weekly reflection, pattern insights, ambient sound, real DND, class/commute schedule, PAGASA auto-detect
 
 ## Cut list (not building)
 Auth (persona = device), notifications/calendar sync (simulated label only), multiple projects dashboard, editing steps by hand.
