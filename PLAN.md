@@ -34,7 +34,8 @@ with time estimates → fitted into real blocks before the deadline → ONE step
 - [x] A3 Reverse deadline (24-h buffer), PH reality calendar (Undas lighter days), one-tap disruption → auto-reschedule, no-guilt on-track status
 - [x] A4 Body-doubling room: live RTDB presence + Kasama companion + "N focusing now"
 - [x] B1 Pick-for-me · B2 Voice start (Web Speech fil-PH/en-PH) · B3 Energy-aware peak-time slots
-- Roadmap only (pitch): learned time padding (focusSec is already collected), weekly reflection, pattern insights, ambient sound, real DND, class/commute schedule, PAGASA auto-detect
+- [x] C1 Learned time padding (actual focusSec vs estimate → pad todo steps + new plans, undo) · C2 "Why this step?" (AI `why` per step) · C3 Show-ups with free skip · C4 Reward per Done (confetti + chime + buzz)
+- Roadmap only (pitch): weekly reflection, pattern insights, ambient sound, real DND, class/commute schedule, PAGASA auto-detect
 
 ## Cut list (not building)
 Auth (persona = device), notifications/calendar sync (simulated label only), multiple projects dashboard, editing steps by hand.

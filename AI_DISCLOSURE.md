@@ -17,11 +17,11 @@
 | Feature | Model | Input → output |
 |---|---|---|
 | Read the brief | `google/gemini-2.5-flash-lite` | Photo or text → deliverables, requirements, deadline (zod-validated JSON) |
-| Plan steps | `google/gemini-2.5-flash-lite` | Brief + days + minutes/day + language → 10–18 steps with time and energy estimates |
+| Plan steps | `google/gemini-2.5-flash-lite` | Brief + days + minutes/day + language → 10–18 steps with time and energy estimates, plus a one-line "why this step" each |
 | I'm stuck | `google/gemini-2.5-flash-lite` | Step + stuck reason + ladder rung → 2–4 smaller steps, encouragement, optional example |
 | Fallback | `deepseek/deepseek-v4-flash-0731` | Used automatically if the first model fails or is rate-limited (text calls) |
 
-**Not AI (our own code):** reverse-deadline scheduling, the PH holiday calendar, disruption rescheduling, pick-for-me, timers, the body-double room (Firebase Realtime DB) and voice transcription (browser Web Speech API).
+**Not AI (our own code):** reverse-deadline scheduling, learned time padding, show-up counting, step rewards, the PH holiday calendar, disruption rescheduling, pick-for-me, timers, the body-double room (Firebase Realtime DB) and voice transcription (browser Web Speech API).
 
 ## Feature log
 - Golden path: photo → plan → one step → stuck → focus timer
@@ -31,3 +31,4 @@
 - Reverse deadline + PH reality calendar + disruption auto-reschedule
 - Body-doubling room (live presence + Kasama)
 - Pick-for-me, voice start, energy-aware slots
+- Learned time padding, "Why this step?", show-ups with a free skip, reward moment per step

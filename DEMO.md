@@ -21,7 +21,10 @@ and nothing happens until the night before."
 2. **WOW:** a giant card says **"Open a new Google Doc and type the title, 2 min."** "That's all Bea has to do."
 3. **Start · just 2 min**. A shrinking disc and **Kasama**, a study buddy. *(Phone joins as a guest and starts focus.)*
    "👥 1 studying with you now. That's body doubling, a well-known ADHD trick." When time's up:
-   **"Keep going or stop?"** "Once you've started, you usually keep going." Tap **I finished this step**.
+   **"Keep going or stop?"** "Once you've started, you usually keep going." Tap **Keep going · 10 min**, wait ~5 s, tap **Done**.
+   🎉 Confetti + chime: "ADHD brains need the reward *now*, not at the end." Then the purple card: **"Learned your pace: you run
+   about 1.2× over my estimates, so I padded your remaining steps."** "It learns Bea." Point at **💡 Why this step** and
+   **🌱 Showed up 1 day**: "Days she showed up, never a streak to break. 1 free skip a week."
 4. Next step, tap **I'm stuck** → **😰 Scared it'll be bad** → "Write the worst version, on purpose."
    "Each kind of stuck gets different help: confused gets an example, too big gets the ladder 15 → 5 → 2 min → just open the file."
 5. **⚡ Brownout** → toast: "moved 15 steps, still done by Thu Nov 5, before your buffer ✓". "Philippine reality: brownouts, typhoons, Undas."
