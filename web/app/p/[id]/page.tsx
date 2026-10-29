@@ -16,7 +16,8 @@ import { useAuth } from "@/components/auth-provider";
 import { StuckDialog } from "@/components/stuck-dialog";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
-import { dayLabel, newId, totalMinutes } from "@/lib/schedule";
+import { dayKey, dayLabel, newId, planStatus, schedule, totalMinutes } from "@/lib/schedule";
+import { DISRUPTIONS, type DisruptionKind, phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Lang, LogEntry, Project, Step, Stuck, StuckReason } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +85,29 @@ export default function PlanPage() {
     toast.success(p.lang === "tl" ? "Nagpakita ka. Panalo na 'yun. 💚" : "You showed up. That counts. 💚");
   }
 
+  /** Re-run the reverse scheduler on the remaining steps, from today, honouring disruptions. */
+  function replan(extra?: { day: string; kind: DisruptionKind }) {
+    if (!p) return;
+    const list = [...(p.disruptions ?? []), ...(extra ? [extra] : [])];
+    const blocked = Object.fromEntries(list.map((d) => [d.day, DISRUPTIONS[d.kind].factor]));
+    const todo = p.steps.filter((s) => s.status === "todo");
+    const res = schedule(todo, p.deadline, p.minutesPerDay, { blocked });
+    const newDay = new Map(res.steps.map((s) => [s.id, s.day]));
+    const moved = todo.filter((s) => newDay.get(s.id) !== s.day).length;
+    const why = extra ? `${DISRUPTIONS[extra.kind].emoji} ${DISRUPTIONS[extra.kind].label} today` : "Re-planned from today";
+    save({
+      steps: p.steps.map((s) => (s.status === "todo" ? { ...s, day: newDay.get(s.id) ?? s.day } : s)),
+      disruptions: list,
+      overMinutes: res.overMinutes,
+      log: [...p.log, { label: extra ? "Auto-rescheduled around a disruption" : "Re-planned from today", detail: `${why}: moved ${moved} step${moved === 1 ? "" : "s"}, finishes ${dayLabel(res.finishDay)}`, ms: 0 }],
+    });
+    toast.success(
+      `${why}: moved ${moved} step${moved === 1 ? "" : "s"}. ` +
+        (res.overMinutes > 0 ? `It's ${fmtMin(res.overMinutes)} tight now; a little extra time per day fixes it.` : `Still done by ${dayLabel(res.finishDay)}, before your buffer ✓`),
+      { duration: 6000 },
+    );
+  }
+
   function park(thought: string) {
     updateDoc(doc(db, "projects", id), { parked: arrayUnion(thought) }).catch(() => toast.error("Couldn't park that thought."));
   }
@@ -147,6 +171,10 @@ export default function PlanPage() {
   const dl = new Date(p.deadline);
   const daysLeft = Math.max(0, Math.round((new Date(dl.getFullYear(), dl.getMonth(), dl.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000));
   const due = new Date(p.deadline).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+  const st = planStatus(p.steps);
+  const todayKey = dayKey(today);
+  const todayDisruption = p.disruptions?.find((d) => d.day === todayKey);
+  const timeFrac = Math.max(0, Math.min(1, (p.deadline - Date.now()) / Math.max(1, p.deadline - p.createdAt)));
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-12 pt-5">
@@ -163,18 +191,23 @@ export default function PlanPage() {
           <span className="inline-flex items-center gap-1"><CalendarDays className="size-4" /> Due {due} · {daysLeft} day{daysLeft === 1 ? "" : "s"} left</span>
           <span className="inline-flex items-center gap-1"><Clock className="size-4" /> {fmtMin(minutesLeft)} to go</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${(doneCount / p.steps.length) * 100}%` }} />
+        <Bar label="Steps done" frac={doneCount / p.steps.length} right={`${doneCount}/${p.steps.length}`} className="bg-primary" />
+        <Bar label="Time left" frac={timeFrac} right={`${daysLeft}d`} className="bg-amber-400" />
+        {cur && st.behind > 0 ? (
+          <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span className="flex-1">🌱 {st.behind} step{st.behind === 1 ? "" : "s"} waiting from earlier days. No stress, it happens.</span>
+            <Button size="sm" variant="outline" className="shrink-0 bg-white" onClick={() => replan()}>Re-plan from today</Button>
           </div>
-          <span className="text-xs font-semibold tabular-nums text-muted-foreground">{doneCount}/{p.steps.length}</span>
-        </div>
-        {p.overMinutes > 0 && (
+        ) : cur && p.overMinutes > 0 ? (
           <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            This needs ~{fmtMin(p.overMinutes)} more than your daily time before the deadline. Add a little time per day to stay on track.
+            This plan is ~{fmtMin(p.overMinutes)} tight for your daily time. A little extra time per day keeps it comfy.
           </p>
-        )}
+        ) : cur && st.finishDay ? (
+          <p className="rounded-xl bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground">
+            ✓ On track · finishes {dayLabel(st.finishDay)}, with a 24-h safety buffer before the deadline
+          </p>
+        ) : null}
       </section>
 
       {cur ? (
@@ -235,6 +268,28 @@ export default function PlanPage() {
         </Card>
       )}
 
+      {cur && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">Something came up today?</h3>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(DISRUPTIONS) as DisruptionKind[]).map((k) => (
+              <button
+                key={k}
+                disabled={!!todayDisruption}
+                onClick={() => replan({ day: todayKey, kind: k })}
+                className={cn(
+                  "rounded-full border bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-50",
+                  todayDisruption?.kind === k && "border-primary bg-secondary opacity-100 disabled:opacity-100",
+                )}
+              >
+                {DISRUPTIONS[k].emoji} {DISRUPTIONS[k].label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">One tap and Hakbang re-plans around it. Automatic PAGASA / class-suspension alerts are simulated in this prototype.</p>
+        </section>
+      )}
+
       <section className="space-y-3">
         <h3 className="flex items-center gap-2 font-bold"><CalendarDays className="size-4 text-primary" /> Your schedule</h3>
         {days.map(([day, steps]) => (
@@ -243,6 +298,7 @@ export default function PlanPage() {
               <span className="font-semibold">{dayLabel(day)}</span>
               <span className="text-xs text-muted-foreground">{fmtMin(totalMinutes(steps))} of {fmtMin(p.minutesPerDay)}</span>
             </div>
+            <DayBadges day={day} disruption={p.disruptions?.find((d) => d.day === day)?.kind} />
             <ul className="space-y-1.5">
               {steps.map((s) => (
                 <li key={s.id} className={cn("flex items-start gap-2 text-sm", s.parentId && "pl-4", s.id === cur?.id && "font-semibold text-primary")}>
@@ -297,5 +353,28 @@ export default function PlanPage() {
         />
       )}
     </main>
+  );
+}
+
+function Bar({ label, frac, right, className }: { label: string; frac: number; right: string; className: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-20 shrink-0 text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
+        <div className={cn("h-full rounded-full transition-all duration-700", className)} style={{ width: `${frac * 100}%` }} />
+      </div>
+      <span className="w-9 text-right text-xs font-semibold tabular-nums text-muted-foreground">{right}</span>
+    </div>
+  );
+}
+
+function DayBadges({ day, disruption }: { day: string; disruption?: DisruptionKind }) {
+  const hol = phHoliday(day);
+  if (!hol && !disruption) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+      {hol && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800">🇵🇭 {hol.label} · lighter day</span>}
+      {disruption && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-900">{DISRUPTIONS[disruption].emoji} {DISRUPTIONS[disruption].label}</span>}
+    </div>
   );
 }

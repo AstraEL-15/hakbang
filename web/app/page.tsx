@@ -16,7 +16,8 @@ import { useAuth } from "@/components/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/firebase";
 import { postJson, toDataUrl } from "@/lib/client";
-import { dayKey, newId, schedule, totalMinutes } from "@/lib/schedule";
+import { dayKey, dayLabel, newId, schedule, totalMinutes } from "@/lib/schedule";
+import { phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Brief, Lang, LogEntry, Plan, Project } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ export default function Home() {
   const [text, setText] = useState("");
   const [showText, setShowText] = useState(false);
   const [deadline, setDeadline] = useState(() => dayKey(Date.now() + 9 * 86_400_000));
-  const [minutesPerDay, setMinutesPerDay] = useState(60);
+  const [minutesPerDay, setMinutesPerDay] = useState(90);
   const [lang, setLang] = useState<Lang>("en");
   const [stages, setStages] = useState<Stage[] | null>(null);
   const { user, google, guest, logout } = useAuth();
@@ -102,12 +103,16 @@ export default function Home() {
       log.push({ label: "Broke it into steps", detail: `${plan.data.steps.length} steps, ${total} min`, ms: plan.meta.ms, model: plan.meta.model });
 
       const sched = schedule(plan.data.steps, due, minutesPerDay);
+      const hol = sched.holidays.map((k) => `${dayLabel(k)} (${phHoliday(k)!.label})`).join(", ");
       set(2, {
         state: "done",
-        detail: sched.overMinutes > 0 ? `Across ${sched.daysUsed} days · ${sched.overMinutes} min over your time ⚠️` : `Across ${sched.daysUsed} days, done before the deadline ✓`,
-        meta: "Hakbang scheduler",
+        detail:
+          (sched.overMinutes > 0
+            ? `Across ${sched.daysUsed} days · ${sched.overMinutes} min over your time ⚠️`
+            : `Finishes ${dayLabel(sched.finishDay)} · 24-h safety buffer before the deadline ✓`) + (hol ? ` · lighter on ${hol}` : ""),
+        meta: "Hakbang scheduler · PH calendar",
       });
-      log.push({ label: "Scheduled into daily blocks", detail: `${sched.daysUsed} days × ${minutesPerDay} min`, ms: 0 });
+      log.push({ label: "Reverse-planned from the deadline", detail: `${sched.daysUsed} days × ${minutesPerDay} min, 24-h buffer${hol ? `, lighter on ${hol}` : ""}`, ms: 0 });
 
       const project: Omit<Project, "id"> = {
         ownerId: user.uid,

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { DisruptionKind } from './ph-calendar'
 
 // AI output schemas: every field required (strict structured outputs); ranges are clamped in code.
 export const BriefSchema = z.object({
@@ -96,6 +97,7 @@ export type Project = {
   log: LogEntry[]
   overMinutes: number
   parked?: string[]
+  disruptions?: { day: string; kind: DisruptionKind }[]
 }
 
 export type AiMeta = { model: string; ms: number; tokensIn: number; tokensOut: number }
