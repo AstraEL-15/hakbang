@@ -29,6 +29,10 @@ absurdly small ("Open a new doc and type the title, 2 min").
 - **Energy-aware slots**: hard steps go in your peak focus time (morning / afternoon / night), easy ones anytime
 - **Body-doubling room**: a live "👥 N studying with you now" (Firebase Realtime DB) and Kasama, an animated study buddy
 - **Focus tools**: sprints of 2 / 10 / 15 / 25 min, breaks, a shrinking visual timer, a distraction parking lot, a hyperfocus guard and a tab-return nudge
+- **Learned time padding**: Hakbang compares your real focus time with its estimates and pads the rest of the plan ("you run about 1.2× over, so I padded your steps"), and new plans start from your learned pace. One-tap undo
+- **"Why this step?"**: every step carries a one-line AI reason, so the next step never feels arbitrary
+- **Show-ups, not streaks**: counts the days you showed up (never resets), with 1 free skip 💤 a week
+- **Reward on every step**: confetti, a soft chime and a tiny buzz on each Done (mute toggle; respects reduced motion)
 - **Pick-for-me**: with several plans, Hakbang chooses one, because choosing is itself a freeze trigger
 - **English / Taglish**, Google or guest sign-in, and private, owner-only data
 
