@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addDoc, collection, onSnapshot, query, where } from "firebase/firestore";
-import { ArrowRight, Camera, Check, FileText, Footprints, Loader2, LogOut, Sparkles, UserRound, X } from "lucide-react";
+import { ArrowRight, Camera, Check, FileText, Footprints, Loader2, LogOut, Mic, Sparkles, Target, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { FocusingNow } from "@/components/body-double";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/firebase";
 import { postJson, toDataUrl } from "@/lib/client";
-import { dayKey, dayLabel, newId, schedule, totalMinutes } from "@/lib/schedule";
+import { dayKey, dayLabel, newId, planStatus, schedule, totalMinutes } from "@/lib/schedule";
 import { phHoliday } from "@/lib/ph-calendar";
 import type { AiMeta, Brief, Lang, LogEntry, Plan, Project } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,9 @@ export default function Home() {
   const { user, google, guest, logout } = useAuth();
   const [plans, setPlans] = useState<Project[]>([]);
   const busy = stages !== null;
+  const [canListen, setCanListen] = useState(false);
+  const [listening, setListening] = useState(false);
+  useEffect(() => setCanListen("webkitSpeechRecognition" in window || "SpeechRecognition" in window), []);
 
   useEffect(() => {
     if (!user) return setPlans([]);
@@ -71,15 +74,48 @@ export default function Home() {
     }
   }
 
-  async function go() {
+  /** Pick-for-me: choosing is itself a freeze trigger, so Hakbang chooses. */
+  function pickForMe() {
+    const open = plans.filter((pl) => pl.steps.some((s) => s.status === "todo"));
+    if (!open.length) return;
+    const best = [...open].sort((a, b) => planStatus(b.steps).behind - planStatus(a.steps).behind || a.deadline - b.deadline)[0];
+    const why = planStatus(best.steps).behind ? "it has steps waiting" : "it's due soonest";
+    toast.success(`Picked "${best.title}" because ${why}. The other ${open.length - 1} can wait.`, { duration: 5000 });
+    router.push(`/p/${best.id}`);
+  }
+
+  /** Voice start: say what you're stuck on, get step 1 back. */
+  function listen() {
+    const w = window as unknown as Record<string, new () => SpeechRec>;
+    const Rec = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Rec) return toast.error("Voice needs Chrome or Edge.");
+    const rec = new Rec();
+    rec.lang = lang === "tl" ? "fil-PH" : "en-PH";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    setListening(true);
+    rec.onresult = (e) => {
+      const said = e.results[0]?.[0]?.transcript ?? "";
+      setText(said);
+      setShowText(true);
+      if (said.trim()) go(said);
+    };
+    rec.onerror = (e) => toast.error(e.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again?");
+    rec.onend = () => setListening(false);
+    rec.start();
+  }
+
+  async function go(spoken?: string) {
+    const t = spoken ?? text;
+    const img = spoken ? null : image;
     if (!user) return toast.error("Please sign in first.");
-    if (!image && !text.trim()) return toast.error("Add a photo or paste the task first.");
+    if (!img && !t.trim()) return toast.error("Add a photo or paste the task first.");
     const [y, m, d] = deadline.split("-").map(Number);
     const due = new Date(y, m - 1, d, 23, 59).getTime();
     if (due < Date.now()) return toast.error("That deadline already passed. Pick a later date.");
 
     const s: Stage[] = [
-      { label: image ? "Reading your photo" : "Reading your task", state: "run" },
+      { label: img ? "Reading your photo" : spoken ? "Understanding what you said" : "Reading your task", state: "run" },
       { label: "Breaking it into small steps", state: "wait" },
       { label: "Fitting steps into your days", state: "wait" },
       { label: "Saving your plan", state: "wait" },
@@ -93,7 +129,7 @@ export default function Home() {
     const log: LogEntry[] = [];
 
     try {
-      const read = await postJson<{ data: Brief; meta: AiMeta; cached?: boolean }>("/api/read", { image: image ?? undefined, text: text || undefined });
+      const read = await postJson<{ data: Brief; meta: AiMeta; cached?: boolean }>("/api/read", { image: img ?? undefined, text: t || undefined });
       const n = read.data.deliverables.length;
       set(0, { state: "done", detail: `Found ${n} deliverable${n === 1 ? "" : "s"}: ${read.data.title}`, meta: `${short(read.meta.model)} · ${read.cached ? "cached" : `${(read.meta.ms / 1000).toFixed(1)}s`}` });
       log.push({ label: "Read the brief", detail: `${n} deliverables, ${read.data.requirements.length} requirements`, ms: read.meta.ms, model: read.meta.model });
@@ -203,8 +239,13 @@ export default function Home() {
                 <Sparkles /> Try a sample brief
               </Button>
               <Button variant="ghost" className="h-10" onClick={() => setShowText((v) => !v)}>
-                <FileText /> {showText ? "Hide text" : "Paste text"}
+                <FileText /> {showText ? "Hide" : "Type"}
               </Button>
+              {canListen && (
+                <Button variant="ghost" className="h-10" onClick={listen} disabled={listening} aria-label="Say it">
+                  {listening ? <Loader2 className="animate-spin" /> : <Mic />} {listening ? "Listening…" : "Say it"}
+                </Button>
+              )}
             </div>
             {showText && (
               <Textarea
@@ -243,7 +284,7 @@ export default function Home() {
             </div>
           </Card>
 
-          <Button size="lg" className="h-14 rounded-2xl text-lg font-bold shadow-lg shadow-primary/20" onClick={go} disabled={!image && !text.trim()}>
+          <Button size="lg" className="h-14 rounded-2xl text-lg font-bold shadow-lg shadow-primary/20" onClick={() => go()} disabled={!image && !text.trim()}>
             Hakbang na! <ArrowRight className="size-5" />
           </Button>
           <FocusingNow />
@@ -252,7 +293,14 @@ export default function Home() {
           </p>
           {plans.length > 0 && (
             <section className="space-y-2 pt-2">
-              <h2 className="text-sm font-semibold text-muted-foreground">Your plans</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-muted-foreground">Your plans</h2>
+                {plans.filter((pl) => pl.steps.some((s) => s.status === "todo")).length >= 2 && (
+                  <Button size="sm" variant="outline" className="rounded-full" onClick={pickForMe}>
+                    <Target /> Pick one for me
+                  </Button>
+                )}
+              </div>
               {plans.slice(0, 3).map((pl) => {
                 const done = pl.steps.filter((s) => s.status === "done").length;
                 return (
@@ -331,3 +379,14 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+// Minimal Web Speech API surface (not in TypeScript's DOM lib).
+type SpeechRec = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+  onerror: (e: { error: string }) => void;
+  onend: () => void;
+  start: () => void;
+};
