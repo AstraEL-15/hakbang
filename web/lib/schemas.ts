@@ -27,6 +27,7 @@ export type Plan = z.infer<typeof PlanSchema>
 
 export const StuckSchema = z.object({
   encouragement: z.string().describe('One short, warm, non-judgmental sentence'),
+  example: z.string().describe('Short example or template skeleton when asked for one, otherwise empty string'),
   microSteps: z.array(
     z.object({
       title: z.string().describe('Tiny physical action, almost too easy'),
@@ -54,10 +55,15 @@ export const PlanRequest = z.object({
   lang: Lang,
 })
 
+export const StuckReason = z.enum(['confused', 'too_big', 'boring', 'scared', 'distracted'])
+export type StuckReason = z.infer<typeof StuckReason>
+
 export const StuckRequest = z.object({
   projectTitle: z.string(),
   step: z.object({ title: z.string(), detail: z.string(), minutes: z.number() }),
   lang: Lang,
+  reason: StuckReason.default('too_big'),
+  level: z.number().int().min(0).default(0),
 })
 
 // Stored in Firestore
@@ -70,6 +76,9 @@ export type Step = {
   status: 'todo' | 'done'
   day: string // YYYY-MM-DD
   parentId?: string
+  level?: number // unstuck-ladder rung: 0 = original step
+  example?: string // template shown for "I don't get it"
+  focusSec?: number
 }
 
 export type LogEntry = { label: string; detail: string; ms: number; model?: string }

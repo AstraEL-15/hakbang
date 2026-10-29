@@ -13,10 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LangToggle } from "@/components/lang-toggle";
 import { FocusTimer } from "@/components/focus-timer";
 import { useAuth } from "@/components/auth-provider";
+import { StuckDialog } from "@/components/stuck-dialog";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
 import { dayLabel, newId, totalMinutes } from "@/lib/schedule";
-import type { AiMeta, Lang, LogEntry, Project, Step, Stuck } from "@/lib/schemas";
+import type { AiMeta, Lang, LogEntry, Project, Step, Stuck, StuckReason } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
 const ENERGY = { low: "Easy", med: "Some focus", high: "Deep focus" } as const;
@@ -27,6 +28,7 @@ export default function PlanPage() {
   const [p, setP] = useState<Project | null | undefined>(undefined);
   const [stuckBusy, setStuckBusy] = useState(false);
   const [cheer, setCheer] = useState<string | null>(null);
+  const [stuckOpen, setStuckOpen] = useState(false);
   const [focus, setFocus] = useState(false);
 
   const { user } = useAuth();
@@ -71,15 +73,18 @@ export default function PlanPage() {
     toast.success(left ? (p.lang === "tl" ? "Ayan! Isang hakbang na. 🎉" : "Nice! One step down. 🎉") : "That was the last one! 🎉");
   }
 
-  async function stuck() {
+  async function stuck(reason: StuckReason) {
     if (!p || !cur) return;
+    setStuckOpen(false);
     setStuckBusy(true);
     setCheer(null);
     try {
-      const { data, meta } = await postJson<{ data: Stuck; meta: AiMeta }>("/api/stuck", {
+      const { data, meta, label } = await postJson<{ data: Stuck; meta: AiMeta; label: string }>("/api/stuck", {
         projectTitle: p.title,
         step: { title: cur.title, detail: cur.detail, minutes: cur.minutes },
         lang: p.lang,
+        reason,
+        level: cur.level ?? 0,
       });
       const micro: Step[] = data.microSteps.map((m) => ({
         id: newId(),
@@ -90,8 +95,10 @@ export default function PlanPage() {
         status: "todo",
         day: cur.day,
         parentId: cur.id,
+        level: (cur.level ?? 0) + 1,
+        example: data.example || undefined,
       }));
-      const log: LogEntry = { label: "Split a stuck step", detail: `"${cur.title}" → ${micro.length} micro-steps`, ms: meta.ms, model: meta.model };
+      const log: LogEntry = { label, detail: `"${cur.title}" → ${micro.length} smaller step${micro.length === 1 ? "" : "s"}`, ms: meta.ms, model: meta.model === "ladder" ? undefined : meta.model };
       await save({ steps: [...p.steps.slice(0, idx), ...micro, ...p.steps.slice(idx + 1)], log: [...p.log, log] });
       setCheer(data.encouragement);
     } catch (e) {
@@ -159,7 +166,7 @@ export default function PlanPage() {
         <Card key={cur.id} className="gap-4 rounded-3xl border-primary/20 p-6 shadow-xl shadow-primary/10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide text-primary">
-              Your next step {cur.parentId && "· micro-step"}
+              Your next step
             </span>
             <Badge variant="secondary" className="gap-1"><Sparkles className="size-3" /> AI</Badge>
           </div>
@@ -170,6 +177,20 @@ export default function PlanPage() {
             <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">{ENERGY[cur.energy]}</span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">{dayLabel(cur.day)}</span>
           </div>
+          {!!cur.level && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800" title="Unstuck ladder: 15 → 5 → 2 min → just open the file">
+              {[1, 2, 3].map((n) => (
+                <span key={n} className={cn("h-1.5 w-6 rounded-full", n <= (cur.level ?? 0) ? "bg-amber-400" : "bg-muted")} />
+              ))}
+              <span className="ml-1">Smaller ×{cur.level}</span>
+            </div>
+          )}
+          {cur.example && (
+            <details className="rounded-xl border bg-muted/40 px-3 py-2 text-sm">
+              <summary className="cursor-pointer font-semibold">📄 See an example <Badge variant="secondary" className="ml-1">AI</Badge></summary>
+              <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{cur.example}</p>
+            </details>
+          )}
           {cheer && <p className="rounded-xl bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground animate-in fade-in">💚 {cheer}</p>}
           <div className="grid gap-2 pt-1">
             <Button size="lg" className="h-13 rounded-2xl text-base font-bold" onClick={() => setFocus(true)}>
@@ -179,7 +200,7 @@ export default function PlanPage() {
               <Button variant="outline" size="lg" className="h-12 rounded-2xl" onClick={markDone}>
                 <Check /> Done
               </Button>
-              <Button variant="outline" size="lg" className="h-12 rounded-2xl border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100" onClick={stuck} disabled={stuckBusy}>
+              <Button variant="outline" size="lg" className="h-12 rounded-2xl border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100" onClick={() => setStuckOpen(true)} disabled={stuckBusy}>
                 {stuckBusy ? <><Loader2 className="animate-spin" /> Shrinking…</> : <><Puzzle /> I&apos;m stuck</>}
               </Button>
             </div>
@@ -233,6 +254,7 @@ export default function PlanPage() {
         <p className="mt-3 text-xs text-muted-foreground">Calendar sync and reminders are simulated in this prototype.</p>
       </details>
 
+      <StuckDialog open={stuckOpen} onOpenChange={setStuckOpen} lang={p.lang} onPick={stuck} />
       {cur && <FocusTimer open={focus} onOpenChange={setFocus} title={cur.title} minutes={cur.minutes} onDone={markDone} />}
     </main>
   );

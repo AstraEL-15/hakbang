@@ -91,9 +91,9 @@ export default function Home() {
     const log: LogEntry[] = [];
 
     try {
-      const read = await postJson<{ data: Brief; meta: AiMeta }>("/api/read", { image: image ?? undefined, text: text || undefined });
+      const read = await postJson<{ data: Brief; meta: AiMeta; cached?: boolean }>("/api/read", { image: image ?? undefined, text: text || undefined });
       const n = read.data.deliverables.length;
-      set(0, { state: "done", detail: `Found ${n} deliverable${n === 1 ? "" : "s"}: ${read.data.title}`, meta: `${short(read.meta.model)} · ${(read.meta.ms / 1000).toFixed(1)}s` });
+      set(0, { state: "done", detail: `Found ${n} deliverable${n === 1 ? "" : "s"}: ${read.data.title}`, meta: `${short(read.meta.model)} · ${read.cached ? "cached" : `${(read.meta.ms / 1000).toFixed(1)}s`}` });
       log.push({ label: "Read the brief", detail: `${n} deliverables, ${read.data.requirements.length} requirements`, ms: read.meta.ms, model: read.meta.model });
 
       const plan = await postJson<{ data: Plan; meta: AiMeta }>("/api/plan", { brief: read.data, deadline: due, minutesPerDay, lang });

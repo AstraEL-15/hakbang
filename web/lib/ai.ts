@@ -41,6 +41,7 @@ export async function aiJson<S extends z.ZodType>({
   schema,
   name = 'result',
   reasoning,
+  timeoutMs = 20_000,
 }: {
   model: string
   system: string
@@ -48,6 +49,8 @@ export async function aiJson<S extends z.ZodType>({
   schema: S
   name?: string
   reasoning?: boolean
+  /** Per-attempt timeout; a stalled provider fails fast and the SDK retries once. */
+  timeoutMs?: number
 }): Promise<{ data: z.infer<S>; meta: AiMeta }> {
   const candidates = typeof content === 'string' ? [model, model === MODELS.llm ? MODELS.parse : MODELS.llm] : [model]
   const jsonSchema = z.toJSONSchema(schema)
@@ -70,6 +73,7 @@ export async function aiJson<S extends z.ZodType>({
         }
         const res = await client.chat.completions.create(
           params as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+          { timeout: timeoutMs },
         )
         const meta: AiMeta = {
           model: m,
