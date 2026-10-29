@@ -1,9 +1,15 @@
 // Browser helpers shared by screens.
+import { auth } from './firebase'
 
 export async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const token = await auth.currentUser?.getIdToken()
   let res: Response
   try {
-    res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    })
   } catch {
     throw new Error('No connection. Check the Wi-Fi and try again.')
   }

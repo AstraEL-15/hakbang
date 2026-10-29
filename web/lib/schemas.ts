@@ -76,6 +76,7 @@ export type LogEntry = { label: string; detail: string; ms: number; model?: stri
 
 export type Project = {
   id: string
+  ownerId: string
   title: string
   summary: string
   deadline: number

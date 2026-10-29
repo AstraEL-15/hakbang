@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LangToggle } from "@/components/lang-toggle";
 import { FocusTimer } from "@/components/focus-timer";
+import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
 import { dayLabel, newId, totalMinutes } from "@/lib/schedule";
@@ -28,18 +29,20 @@ export default function PlanPage() {
   const [cheer, setCheer] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
 
-  useEffect(
-    () =>
-      onSnapshot(
-        doc(db, "projects", id),
-        (snap) => setP(snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null),
-        () => {
-          toast.error("Couldn't load your plan. Check the connection.");
-          setP(null);
-        },
-      ),
-    [id],
-  );
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user === undefined) return; // wait for the session to restore
+    if (user === null) return setP(null);
+    return onSnapshot(
+      doc(db, "projects", id),
+      (snap) => setP(snap.exists() ? ({ id: snap.id, ...snap.data() } as Project) : null),
+      (err) => {
+        if (err.code !== "permission-denied") toast.error("Couldn't load your plan. Check the connection.");
+        setP(null);
+      },
+    );
+  }, [id, user]);
 
   const idx = p ? p.steps.findIndex((s) => s.status === "todo") : -1;
   const cur = p && idx >= 0 ? p.steps[idx] : null;
@@ -112,8 +115,9 @@ export default function PlanPage() {
     return (
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-4xl">🧭</p>
-        <h1 className="text-xl font-semibold">We couldn&apos;t find that plan.</h1>
-        <Button nativeButton={false} render={<Link href="/" />}>Start a new one</Button>
+        <h1 className="text-xl font-semibold">{user ? "We couldn't find that plan." : "Sign in to see your plan."}</h1>
+        {user && <p className="text-sm text-muted-foreground">It may belong to another account.</p>}
+        <Button nativeButton={false} render={<Link href="/" />}>{user ? "Start a new one" : "Go to sign in"}</Button>
       </main>
     );
 

@@ -1,4 +1,5 @@
 import { aiJson, MODELS } from '@/lib/ai'
+import { requireUser } from '@/lib/auth-server'
 import { PlanRequest, PlanSchema } from '@/lib/schemas'
 
 const LANG = {
@@ -19,6 +20,8 @@ Rules:
 - ${LANG[lang]}`
 
 export async function POST(req: Request) {
+  const uid = await requireUser(req)
+  if (uid instanceof Response) return uid
   const parsed = PlanRequest.safeParse(await req.json().catch(() => ({})))
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
   const { brief, deadline, minutesPerDay, lang } = parsed.data

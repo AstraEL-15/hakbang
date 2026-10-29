@@ -1,4 +1,5 @@
 import { aiJson, MODELS } from '@/lib/ai'
+import { requireUser } from '@/lib/auth-server'
 import { StuckRequest, StuckSchema } from '@/lib/schemas'
 
 const LANG = {
@@ -7,6 +8,8 @@ const LANG = {
 }
 
 export async function POST(req: Request) {
+  const uid = await requireUser(req)
+  if (uid instanceof Response) return uid
   const parsed = StuckRequest.safeParse(await req.json().catch(() => ({})))
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
   const { projectTitle, step, lang } = parsed.data

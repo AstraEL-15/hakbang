@@ -1,4 +1,5 @@
 import { aiJson, MODELS } from '@/lib/ai'
+import { requireUser } from '@/lib/auth-server'
 import { BriefSchema, ReadRequest } from '@/lib/schemas'
 
 const SYSTEM = `You read school assignments, project briefs and syllabi (photos, screenshots or pasted text).
@@ -7,6 +8,8 @@ List each deliverable separately (chapters, sections, presentations, forms). Kee
 If the text is in Filipino or Taglish, keep it in that language.`
 
 export async function POST(req: Request) {
+  const uid = await requireUser(req)
+  if (uid instanceof Response) return uid
   const parsed = ReadRequest.safeParse(await req.json().catch(() => ({})))
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
   const { text, image } = parsed.data
