@@ -86,24 +86,40 @@ export default function Home() {
   }
 
   /** Voice start: say what you're stuck on, get step 1 back. */
-  function listen() {
+  function listen(langCode = lang === "tl" ? "fil-PH" : "en-PH") {
     const w = window as unknown as Record<string, new () => SpeechRec>;
     const Rec = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!Rec) return toast.error("Voice needs Chrome or Edge.");
     const rec = new Rec();
-    rec.lang = lang === "tl" ? "fil-PH" : "en-PH";
+    rec.lang = langCode;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
-    setListening(true);
+    let retried = false;
     rec.onresult = (e) => {
       const said = e.results[0]?.[0]?.transcript ?? "";
       setText(said);
       setShowText(true);
       if (said.trim()) go(said);
     };
-    rec.onerror = (e) => toast.error(e.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again?");
-    rec.onend = () => setListening(false);
-    rec.start();
+    rec.onerror = (e) => {
+      console.warn(`[voice] ${langCode}: ${e.error}`);
+      if (e.error === "language-not-supported" && langCode !== "en-US") {
+        retried = true;
+        return listen("en-US");
+      }
+      toast.error(VOICE_ERRORS[e.error] ?? `Voice failed (${e.error}). Type it instead?`, { duration: 7000 });
+    };
+    rec.onend = () => {
+      if (!retried) setListening(false);
+    };
+    try {
+      rec.start();
+      setListening(true);
+      toast("🎤 Listening… say what you're stuck on", { duration: 3000 });
+    } catch (err) {
+      setListening(false);
+      toast.error(`Couldn't start the mic: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   async function go(spoken?: string) {
@@ -244,7 +260,7 @@ export default function Home() {
                 <FileText /> {showText ? "Hide" : "Type"}
               </Button>
               {canListen && (
-                <Button variant="ghost" className="h-10" onClick={listen} disabled={listening} aria-label="Say it">
+                <Button variant="ghost" className="h-10" onClick={() => listen()} disabled={listening} aria-label="Say it">
                   {listening ? <Loader2 className="animate-spin" /> : <Mic />} {listening ? "Listening…" : "Say it"}
                 </Button>
               )}
@@ -400,6 +416,15 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const VOICE_ERRORS: Record<string, string> = {
+  "not-allowed": "Microphone blocked. Click the 🔒/mic icon in the address bar → Allow, then try again.",
+  "service-not-allowed": "This browser blocks speech recognition (e.g. Brave). Use Chrome or Edge.",
+  "audio-capture": "No microphone found. Check that one is connected and allowed for this browser in system settings.",
+  network: "Voice needs internet (Chrome/Edge send audio to their speech service). Check the connection.",
+  "no-speech": "Didn't hear anything. Tap Say it and start talking right away.",
+  aborted: "Listening stopped. Tap Say it to try again.",
+};
 
 // Minimal Web Speech API surface (not in TypeScript's DOM lib).
 type SpeechRec = {
