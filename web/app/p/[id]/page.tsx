@@ -14,6 +14,7 @@ import { LangToggle } from "@/components/lang-toggle";
 import { FocusTimer } from "@/components/focus-timer";
 import { useAuth } from "@/components/auth-provider";
 import { StuckDialog } from "@/components/stuck-dialog";
+import { BodyDouble } from "@/components/body-double";
 import { db } from "@/lib/firebase";
 import { postJson } from "@/lib/client";
 import { dayKey, dayLabel, newId, planStatus, schedule, totalMinutes } from "@/lib/schedule";
@@ -350,7 +351,9 @@ export default function PlanPage() {
           onDone={markDone}
           onStop={stopCounts}
           onPark={park}
-        />
+        >
+          {focus !== null && <BodyDouble />}
+        </FocusTimer>
       )}
     </main>
   );

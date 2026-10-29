@@ -117,6 +117,11 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Kasama, the body-double companion */
+@keyframes kasama-type { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes kasama-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes kasama-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

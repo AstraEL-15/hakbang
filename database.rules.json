@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "focus": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'since']) && newData.child('name').isString() && newData.child('name').val().length <= 40"
+      }
+    }
+  }
+}

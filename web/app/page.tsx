@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { LangToggle } from "@/components/lang-toggle";
 import { useAuth } from "@/components/auth-provider";
+import { FocusingNow } from "@/components/body-double";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/firebase";
 import { postJson, toDataUrl } from "@/lib/client";
@@ -245,6 +246,7 @@ export default function Home() {
           <Button size="lg" className="h-14 rounded-2xl text-lg font-bold shadow-lg shadow-primary/20" onClick={go} disabled={!image && !text.trim()}>
             Hakbang na! <ArrowRight className="size-5" />
           </Button>
+          <FocusingNow />
           <p className="text-center text-xs text-muted-foreground">
             <Badge variant="secondary" className="mr-1">AI</Badge> reads your task and plans it, and you stay in control.
           </p>
