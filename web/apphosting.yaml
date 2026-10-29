@@ -1,0 +1,43 @@
+# Settings for Backend (on Cloud Run).
+runConfig:
+  minInstances: 1 # no cold start during judging; set to 0 afterwards
+  maxInstances: 2 # caps spend
+env:
+  - variable: AI_BASE_URL
+    value: "https://openrouter.ai/api/v1"
+    availability: [ BUILD, RUNTIME ]
+  - variable: EMBEDDING_MODEL_NAME
+    value: "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+    availability: [ BUILD, RUNTIME ]
+  - variable: LLM_MODEL_NAME
+    value: "deepseek/deepseek-v4-flash-0731"
+    availability: [ BUILD, RUNTIME ]
+  - variable: PARSING_MODEL_NAME
+    value: "google/gemini-2.5-flash-lite"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyDuVbtuwheKf4mhBNT5aIoZ99GPDz9o_ms"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "prompt2-product.firebaseapp.com"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+    value: "https://prompt2-product-default-rtdb.firebaseio.com"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "prompt2-product"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "prompt2-product.firebasestorage.app"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_SENDER_ID
+    value: "524187863381"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:524187863381:web:bc39c83f48f4b4e11ec7dc"
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-NVH6YWH20C"
+    availability: [ BUILD, RUNTIME ]
+  - variable: AI_API_KEY
+    secret: AI_API_KEY

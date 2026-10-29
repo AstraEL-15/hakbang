@@ -2,3 +2,5 @@
 node_modules/
 .next/
 .shots/
+firebase-debug*.log
+.firebase/

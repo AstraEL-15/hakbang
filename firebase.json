@@ -1,0 +1,15 @@
+{
+  "apphosting": {
+    "backendId": "hakbang",
+    "rootDir": "web",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions",
+      ".env*",
+      ".next"
+    ]
+  }
+}
